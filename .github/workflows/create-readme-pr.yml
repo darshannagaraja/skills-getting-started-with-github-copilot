@@ -1,0 +1,91 @@
+name: Create OctoAcme README PR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-readme-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create branch
+        run: |
+          BRANCH=feat/docs/add-octoacme-readme
+          git checkout -b $BRANCH
+
+      - name: Add README file
+        run: |
+          mkdir -p docs
+          cat > docs/README.md <<'README'
+# OctoAcme Project Management Docs
+
+Welcome! This README is the single entry point for understanding and navigating OctoAcme’s project management practices. It orients new contributors and team members to our core workflows, artifacts, roles, and the key documents collected in this folder.
+
+OctoAcme applies an iterative, customer-first approach emphasizing clear ownership, measurable outcomes, and incremental delivery. Projects start with a lightweight initiation phase (Project One‑pagers) to align stakeholders, confirm business value, and define decision gates. Planning turns approved initiatives into a prioritized backlog with acceptance criteria, estimates, a Definition of Done, and a release/milestone map so dependencies and risks are surfaced early.
+
+Execution is driven by visible project boards and regular team rhythm: daily standups, timeboxed planning, demos, and a disciplined Pull Request workflow (small, CI-verified PRs linked to issues and acceptance criteria with required approvals). Releases are categorized (patch/minor/major) and follow pre-release checks, smoke tests, rollback plans, and an incident playbook to reduce production risk and speed triage.
+
+Roles and communication are explicit: Product Managers own outcomes and prioritization; Project Managers coordinate delivery, schedules, risks, and stakeholder communication; Developers implement and test; QA validates acceptance; and stakeholders provide inputs and approvals. Quality assurance is baked into every phase — unit/integration/e2e tests, CI linting and security scans, manual QA where needed, release checklists, and a visible risk register. Retrospectives drive continuous improvement by converting learnings into prioritized action items that feed back into the backlog.
+
+Process Documentation Index
+
+- [Project Management Overview](octoacme-project-management-overview.md)
+- [Project Initiation Guide](octoacme-project-initiation.md)
+- [Project Planning](octoacme-project-planning.md)
+- [Execution & Tracking](octoacme-execution-and-tracking.md)
+- [Risk Management & Communication](octoacme-risks-and-communication.md)
+- [Release & Deployment Guide](octoacme-release-and-deployment.md)
+- [Retrospective & Continuous Improvement](octoacme-retrospective-and-continuous-improvement.md)
+- [Roles and Personas](octoacme-roles-and-personas.md)
+README
+
+      - name: Commit and push branch
+        env:
+          BRANCH: feat/docs/add-octoacme-readme
+        run: |
+          git add docs/README.md
+          git commit -m "docs: add README for OctoAcme Project Management Docs" || echo "No changes to commit"
+          git push --set-upstream origin $BRANCH
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: feat/docs/add-octoacme-readme
+          base: main
+          title: "docs: add README for OctoAcme Project Management Docs"
+          body: |
+            Adds docs/README.md as the main entry point for OctoAcme project management processes.
+
+            Related: #2
+          labels: documentation, process-improvement
+
+      - name: Request reviewer (darshannagaraja)
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = 'feat/docs/add-octoacme-readme';
+            const pulls = await github.rest.pulls.list({
+              owner, repo, head: `${owner}:${branch}`, state: 'open'
+            });
+            if (pulls.data.length === 0) {
+              core.setFailed(`No open PR found for branch ${branch}`);
+            } else {
+              const pr_number = pulls.data[0].number;
+              await github.rest.pulls.requestReviewers({
+                owner, repo, pull_number: pr_number, reviewers: ['darshannagaraja']
+              });
+              core.info(`Requested review from darshannagaraja on PR #${pr_number}`);
+            }
